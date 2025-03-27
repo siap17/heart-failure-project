@@ -1,0 +1,78 @@
+```{r}
+library('tidyverse')
+library("ggplot2")
+library('tree')
+library('dplyr')
+library('gridExtra')
+install.packages("ggfortify")
+library('ggfortify')
+```
+
+
+```{r}
+## EDA
+heartData <- read.csv('/Users/cream/Downloads/heart.csv')  ## Please update the path to access the data
+## Pairs analysis:
+heartDataNumeric <- heartData %>%
+  select(Age, RestingBP, Cholesterol, FastingBS, MaxHR, Oldpeak, HeartDisease)
+pairs(heartDataNumeric)
+
+#Boxplots
+plot1 <- ggplot(heartData, aes(ChestPainType, Cholesterol)) +
+  geom_boxplot() +
+  labs(title = "Boxplots of Cholesterol by Chest Pain Type")
+plot2 <- ggplot(heartData, aes(RestingECG, Cholesterol)) +
+  geom_boxplot() +
+  labs(title = "Boxplots of Cholesterol by Resting ECG")
+plot3 <- ggplot(heartData, aes(ChestPainType, RestingBP)) +
+  geom_boxplot() +
+  labs(title = "Boxplots of Resting BP by Chest Pain Type")
+plot4 <- ggplot(heartData, aes(ChestPainType, Oldpeak)) +
+  geom_boxplot() +
+  labs(title = "Boxplots of Oldpeak by Chest Pain Type")
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+
+# Co-Occurence Plot
+plot1 <- ggplot(heartData, aes(ExerciseAngina, ST_Slope)) +
+  geom_count() +
+  labs(title = "Occurrences of Exercise Angina and ST_Slope")
+plot2 <- ggplot(heartData, aes(ChestPainType, factor(HeartDisease))) +
+  geom_count() +
+  labs(title = 'Occurence of Heart Disease by Chest Pain Type')
+
+grid.arrange(plot1, plot2, ncol=1)
+
+# Histograms:
+plot1 <- ggplot(heartData, aes(MaxHR)) +
+  geom_histogram() +
+  labs(title = 'Histogram of Maximum Heart Rate')
+plot2 <- ggplot(heartData, aes(Age)) +
+  geom_histogram() +
+  labs(title = 'Distribution of Ages')
+plot3 <- ggplot(heartData, aes(Oldpeak)) +
+  geom_histogram() +
+  labs(title = 'Distribution of "Oldpeak"')
+plot4 <- ggplot(heartData, aes(Cholesterol)) +
+  geom_histogram() +
+  labs(title = 'Distribution of Cholesterol')
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+
+#Bar chart:
+ggplot(heartData, aes(Sex)) +
+  geom_bar() +
+  labs(title = 'Male vs Female Sample Distribution')
+
+#Scatter plots
+plot1 <- ggplot(heartData, aes(x=Cholesterol, y=RestingBP, color = ChestPainType)) +
+  geom_point(alpha = 0.5) +
+  labs(title = 'Cholesterol vs Resting BP by Chest Pain Type')
+plot2 <- ggplot(heartData, aes(x=Cholesterol, y=MaxHR, color = ChestPainType)) +
+  geom_point(alpha = 0.5) +
+  labs(title = 'Cholesterol vs Maximum Heart Rate by Chest Pain Type')
+grid.arrange(plot1, plot2, ncol = 1)
+
+#PCA Biplot
+pcaRes <- prcomp(heartDataNumeric[1:6], scale. = TRUE)
+autoplot(pcaRes, data = heartData, color = 'HeartDisease', loadings = TRUE, loadings.label = TRUE) +
+  labs(title = 'PCA Biplot')
+```
