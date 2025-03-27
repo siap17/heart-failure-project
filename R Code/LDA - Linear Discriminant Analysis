@@ -1,0 +1,49 @@
+```{r}
+# Load necessary package
+library(MASS)
+
+# Load the dataset
+heart <- read.csv("/Users/cream/Downloads/heart.csv") ## Please update the path to access the data
+na.omit(heart)
+
+# Convert categorical variables to factors
+heart$HeartDisease <- as.factor(heart$HeartDisease)
+heart$ChestPainType <- as.factor(heart$ChestPainType)
+heart$ECG <- as.factor(heart$RestingECG)
+heart$ExerciseAngina <- as.factor(heart$ExerciseAngina)
+
+# Split into training (80%) and testing (20%) sets
+set.seed(123)
+train <- sample(1:nrow(heart), nrow(heart) * 0.8)
+heart.train <- heart[train, ]
+heart.test <- heart[-train, ]
+
+# Fit LDA model (using selected predictor variables)
+lda.fit <- lda(HeartDisease ~ Age + Cholesterol + MaxHR + ChestPainType + RestingBP, data = heart.train)
+
+# Print model summary
+print(lda.fit)
+
+# Plot the LDA results
+plot(lda.fit)
+
+# Make predictions on the test set
+lda.pred <- predict(lda.fit, heart.test)
+
+# Extract predicted class
+lda.class <- lda.pred$class
+
+# Confusion matrix to evaluate performance
+conf_matrix <- table(lda.class, heart.test$HeartDisease)
+print(conf_matrix)
+
+# Compute prediction accuracy
+accuracy <- mean(lda.class == heart.test$HeartDisease)
+print(paste("Accuracy:", round(accuracy, 4)))
+
+# Analyze posterior probabilities
+high_confidence_cases <- sum(lda.pred$posterior[, 1] > 0.9)
+print(paste("Cases with >90% confidence:", high_confidence_cases))
+
+
+```
