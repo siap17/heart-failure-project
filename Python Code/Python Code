@@ -1,0 +1,198 @@
+import pandas as pd
+import numpy as np
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA, QuadraticDiscriminantAnalysis as QDA
+from sklearn.model_selection import train_test_split
+import statsmodels.api as sm
+from sklearn.tree import (DecisionTreeClassifier as DTC,
+                          DecisionTreeRegressor as DTR,
+                          plot_tree,
+                          export_text)
+from matplotlib.pyplot import subplots
+from sklearn. naive_bayes import GaussianNB
+from sklearn. linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.preprocessing import StandardScaler
+import sklearn.model_selection as skm
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+
+heart = pd.read_csv('/Users/cream/Downloads/heart.csv') ## Please update the path to access the data
+heart = heart.dropna()
+heart = pd.get_dummies(heart, drop_first=True)
+
+X = heart.drop('HeartDisease', axis=1) 
+y = heart['HeartDisease']
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = 141)
+
+# Naive Bayes
+nb_model = GaussianNB()
+nb_model.fit(x_train, y_train)
+
+# classification tree
+tree = DTC(criterion = 'entropy',
+         max_depth = 3,
+         random_state = 0)
+tree.fit(x_train, y_train)
+
+# tree graph
+feature_names = X.columns.tolist()
+ax = subplots(figsize = (12, 8))[1]
+plot_tree(tree, feature_names = feature_names, ax = ax, class_names=['No Heart Disease', 'Heart Disease'])
+
+# feature importance
+#importances = tree.feature_importances_
+#importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': importances})
+#importance_df = importance_df.sort_values(by='Importance', ascending=False)
+#print('Unpruned Tree Feature Importance: \n\n', importance_df)
+
+ccp_path = tree.cost_complexity_pruning_path(x_train, y_train)
+kfold = skm.KFold(10,
+                  random_state=1,
+                  shuffle=True)
+grid = skm.GridSearchCV(tree,
+                        {'ccp_alpha': ccp_path.ccp_alphas},
+                        refit=True,
+                        cv=kfold,
+                        scoring='accuracy')
+grid.fit(x_train, y_train)
+opt_tree_depth = grid.best_estimator_.tree_.node_count 
+best_ccp_alpha = grid.best_params_['ccp_alpha']
+
+clf_pruned = DTC(criterion='entropy',
+          max_depth=opt_tree_depth,
+          ccp_alpha=best_ccp_alpha,
+          random_state=0)
+clf_pruned.fit(x_train, y_train)
+ax = subplots(figsize = (8, 6))[1]
+plot_tree(clf_pruned, feature_names = feature_names, ax = ax, class_names=['No Heart Disease', 'Heart Disease'])
+
+# feature importance
+#importances = clf_pruned.feature_importances_
+#importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': importances})
+#importance_df = importance_df.sort_values(by='Importance', ascending=False)
+#print('Pruned Tree Fearture Importnace: \n\n', importance_df)
+
+Ida_model = LinearDiscriminantAnalysis()
+Ida_model.fit(x_train, y_train)
+
+# Logistic Regresiion
+scaler = StandardScaler()
+x_train_new = scaler.fit_transform(x_train)
+x_test_new = scaler.fit_transform(x_test)
+
+log_reg = LogisticRegression(random_state=0)
+log_reg.fit(x_train_new, y_train)
+y_pred_prob = log_reg.predict_proba(x_test_new)[:, 1] 
+
+coefficients = log_reg.coef_[0]
+coefficients = log_reg.coef_[0]
+
+coef_df = pd.DataFrame({
+    'Feature': x_train.columns,
+    'Coefficient': coefficients
+})
+
+coef_df['abs_coefficient'] = coef_df['Coefficient'].abs()
+coef_df = coef_df.sort_values(by='abs_coefficient', ascending=False)
+
+print('Coefficient Estimates: \n', coef_df[['Feature', 'Coefficient']])
+
+# P-value
+X_train_const = sm.add_constant(x_train_new)
+log_reg_sm = sm.Logit(y_train, X_train_const)
+result = log_reg_sm.fit()
+
+p_value = result.pvalues
+significant_features = p_value[p_value < 0.05]
+print('P-Values: \n', significant_features, '\n')
+print('Variable Names: \n', 
+      "x3: Cholesterol\n", 
+      "x4: FastingBS\n", 
+      "x5: MAxHR\n", 
+      'x6: Oldpeak\n', 
+      'x7: Sex_M\n', 
+      'x8: ChestPainType_ATA\n',
+      'x9: ChestPainType_NAP\n',
+      'x10: ChestPainType_TA\n',
+      'x13: ExerciseAngina_Y\n',
+      'x14: ST_Slope_Flat\n')
+
+models = {
+    'Unpruned Tree': (tree, x_test, 'green'),
+    'Naive Bayes': (nb_model, x_test, 'black'),
+    'Logistic': (log_reg, x_test_new, 'red'),
+    'LDA': (Ida_model, x_test_new, 'orange'),
+    'Pruned Tree': (clf_pruned, x_test, 'purple')
+}
+
+plt.figure(figsize=(8, 6))
+y_pos = 0.6
+for name, (model, x, color) in models.items():
+    y_pred_prob = model.predict_proba(x)[:,1]
+    fpr, tpr, _  = roc_curve(y_test, y_pred_prob)
+    roc_auc = auc(fpr, tpr)
+
+    plt.plot(fpr, tpr, color = color)
+    plt.text(0.75, y_pos, 
+             f'{name}= {roc_auc:.3f}', 
+             color=color, 
+             fontsize=8.5, ha='left')
+    y_pos -= 0.1
+
+plt.title('ROC Curve for Heart Failure')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
+plt.legend(models.keys(), loc='lower center')
+plt.show()
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_curve,  auc
+
+data = pd.read_csv('/Users/cream/Downloads/heart.csv')  ## Please update the path to access the data
+categorical_features = ["Sex", "ChestPainType", "RestingECG", "ExerciseAngina", "ST_Slope"]
+label_encoders = {}
+for col in categorical_features:
+    le = LabelEncoder()
+    data[col] = le.fit_transform(data[col])
+    label_encoders[col] = le 
+
+X = data.drop(columns=['HeartDisease'])
+y = data['HeartDisease']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+nb_model = GaussianNB()
+nb_model.fit(X_train_scaled, y_train)
+
+y_pred = nb_model.predict(X_test_scaled)
+
+accuracy = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+class_report = classification_report(y_test, y_pred)
+
+fpr, tpr, _ = roc_curve(y_test, nb_model.predict_proba(X_test_scaled)[:, 1])
+roc_auc = auc(fpr, tpr)
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {roc_auc:.4f})', color='blue')
+plt.plot([0, 1], [0, 1], linestyle='--', color='grey')  
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve for Naïve Bayes Model")
+plt.legend()
+plt.show()
+
+print(f'Accuracy: {accuracy:.4f}')
+print('Confusion Matrix:\n', conf_matrix)
+print('Classification Report:\n', class_report)
+
+
